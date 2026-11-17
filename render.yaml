@@ -1,0 +1,21 @@
+# Render Blueprint — optional. Lets Render create the backend service from this repo.
+# Secrets (MONGODB_URI, FRONTEND_URL) are marked sync: false, so Render asks for
+# them in the dashboard; they are never stored in the repository.
+services:
+  - type: web
+    name: appointment-manager-api
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 22
+      - key: MONGODB_URI
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
