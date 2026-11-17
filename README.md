@@ -2,23 +2,36 @@
 
 REST API for the **Appointment Manager** practical assessment (MEVN stack), built with **Node.js, Express 5, MongoDB Atlas and Mongoose**.
 
-> **Frontend (live):** <https://appointment-management-frontend.onrender.com>. The Vue source is in a separate repository: _add repo link here_.
-> **Live API:** <https://appintment-management.onrender.com>. Health check: <https://appintment-management.onrender.com/api/health>, appointments: <https://appintment-management.onrender.com/api/appointments>
+## Live deployment
+
+| | URL |
+|---|---|
+| **Frontend (Vue)** | <https://appointment-management-frontend.onrender.com> |
+| **Backend API (base URL)** | <https://appintment-management.onrender.com> |
+| Health check | <https://appintment-management.onrender.com/api/health> |
+| All appointments | <https://appintment-management.onrender.com/api/appointments> |
+| Search example | <https://appintment-management.onrender.com/api/appointments?search=alex> |
+| Status filter example | <https://appintment-management.onrender.com/api/appointments?status=Confirmed> |
+| Calendar example | <https://appintment-management.onrender.com/api/appointments/calendar?startDate=2026-11-01&endDate=2026-11-30> |
+| Frontend source | Separate repository: _add repo link here_ |
+
+Both services run on Render's **free plan**, and the database is MongoDB Atlas (free M0 tier). Free services sleep after about 15 minutes idle, so **the first request can take 30–60 seconds**. Open the health-check link first to wake the API.
 
 ---
 
 ## Contents
 
-1. [Submission summary](#submission-summary)
-2. [Architecture](#architecture)
-3. [Local setup](#local-setup)
-4. [Environment variables](#environment-variables)
-5. [MongoDB Atlas setup](#mongodb-atlas-setup)
-6. [Dates & timezones](#dates--timezones)
-7. [API documentation](#api-documentation)
-8. [Deploying to Render](#deploying-to-render)
-9. [Tests performed](#tests-performed)
-10. [Manual testing with curl](#manual-testing-with-curl)
+1. [Live deployment](#live-deployment)
+2. [Submission summary](#submission-summary)
+3. [Architecture](#architecture)
+4. [Local setup](#local-setup)
+5. [Environment variables](#environment-variables)
+6. [MongoDB Atlas setup](#mongodb-atlas-setup)
+7. [Dates & timezones](#dates--timezones)
+8. [API documentation](#api-documentation)
+9. [Deploying to Render](#deploying-to-render)
+10. [Tests performed](#tests-performed)
+11. [Manual testing with curl](#manual-testing-with-curl)
 
 ---
 
@@ -36,8 +49,8 @@ REST API for the **Appointment Manager** practical assessment (MEVN stack), buil
 - Pagination with total and page metadata
 - Data stored in MongoDB Atlas, so changes survive a page refresh or a server restart
 - Idempotent seed script with the three starting appointments
-- Health-check endpoint, centralised error handling, CORS restricted to the frontend origin
-- Ready to deploy on Render (`render.yaml`, `PORT` from the environment, health check)
+- Health-check endpoint, centralised error handling, CORS restricted to the live frontend origin
+- **Deployed on Render** at <https://appintment-management.onrender.com>, connected to MongoDB Atlas, used by the live frontend
 
 ### Incomplete / out of scope in this repository
 
@@ -191,7 +204,20 @@ new Date(appointment.dateTime).toLocaleString();
 
 ## API documentation
 
-Base URL: `http://localhost:5000` locally, or the Render URL once deployed.
+| Environment | Base URL |
+|---|---|
+| Production (Render) | `https://appintment-management.onrender.com` |
+| Local | `http://localhost:5000` |
+
+All endpoints below are relative to the base URL, e.g. `GET https://appintment-management.onrender.com/api/appointments`.
+
+**Frontend configuration (Vite):**
+```bash
+# frontend .env.production
+VITE_API_URL=https://appintment-management.onrender.com
+# frontend .env.development
+VITE_API_URL=http://localhost:5000
+```
 
 ### Response format
 
@@ -257,6 +283,8 @@ Base URL: `http://localhost:5000` locally, or the Render URL once deployed.
 
 ## Deploying to Render
 
+**Current deployment:** <https://appintment-management.onrender.com> (Render Web Service, free plan). This is how it was configured, and how to reproduce it:
+
 1. Push this repository to GitHub.
 2. In Render, choose **New → Web Service** and select the repository.
 3. Configure:
@@ -273,15 +301,17 @@ Base URL: `http://localhost:5000` locally, or the Render URL once deployed.
 
    | Key | Value |
    |---|---|
-   | `MONGODB_URI` | your Atlas connection string |
+   | `MONGODB_URI` | your Atlas connection string (secret, never committed) |
    | `NODE_ENV` | `production` |
-   | `FRONTEND_URL` | the frontend's URL(s), comma-separated |
+   | `FRONTEND_URL` | `https://appointment-management-frontend.onrender.com,http://localhost:5173` |
    | `NODE_VERSION` | `22` |
 
-   Don't set `PORT`. Render injects it.
+   Don't set `PORT`. Render injects it. `http://localhost:5173` is optional; it lets a locally running frontend call the deployed API.
 
 5. Deploy. The logs should show `MongoDB connected` and `Server running in production mode`.
 6. Check it: `curl https://appintment-management.onrender.com/api/health` should return `"database":"connected"`.
+
+Auto-deploy is on, so every push to `main` that changes files under `backend/` redeploys the API.
 
 Alternatively, choose **New → Blueprint** to use [render.yaml](render.yaml).
 
@@ -318,12 +348,25 @@ npm run test:e2e            # or: node tests/e2e.js http://localhost:5000
 | 14 | Seed idempotency | Second run: `0 inserted, 3 already present` | ✅ |
 | 15 | Startup without DB | Missing or unreachable `MONGODB_URI` makes the process exit with code 1 | ✅ |
 
+**Live deployment smoke checks** (run against <https://appintment-management.onrender.com>):
+
+| Check | Result |
+|---|---|
+| `GET /api/health` | ✅ 200, `"database":"connected"` |
+| `GET /api/appointments` | ✅ 200, returns data from Atlas |
+| CORS from `https://appointment-management-frontend.onrender.com` | ✅ `Access-Control-Allow-Origin` echoed for that origin |
+
+The full e2e suite isn't run against production, because it needs an empty, freshly seeded database.
+
 ---
 
 ## Manual testing with curl
 
+The write examples (POST/PUT/PATCH/DELETE) change the live database. Delete anything you create, or point `BASE` at your local server.
+
 ```bash
-BASE=http://localhost:5000        # or https://appintment-management.onrender.com
+BASE=https://appintment-management.onrender.com     # production
+# BASE=http://localhost:5000                         # local
 
 curl "$BASE/api/appointments"                                   # all
 curl "$BASE/api/appointments?status=Confirmed"                  # filter by status
